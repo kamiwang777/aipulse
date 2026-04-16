@@ -8,7 +8,7 @@
 ✦ 4.1% · 35.4%   🤖 12% · 33%
 ```
 
-[中文文档](README.zh.md) · [Report a bug](https://github.com/kami/aipulse/issues) · [Author: Kami](https://github.com/kami)
+[中文文档](README.zh.md) · [Report a bug](https://github.com/kamiwang777/aipulse/issues) · [Author: Kami (@kamiwang777)](https://github.com/kamiwang777)
 
 ---
 
@@ -44,7 +44,7 @@ curl -fsSL https://raw.githubusercontent.com/kami/aipulse/main/install.sh | bash
 Or manually:
 
 ```bash
-git clone https://github.com/kami/aipulse.git
+git clone https://github.com/kamiwang777/aipulse.git
 cd aipulse
 ./install.sh
 ```
@@ -120,7 +120,7 @@ Architecture: each tool is a `fetch_*` bash function returning a JSON blob. Add 
 
 ## License
 
-MIT © [Kami](https://github.com/kami)
+MIT © [Kami (@kamiwang777)](https://github.com/kamiwang777)
 
 ## Acknowledgments
 

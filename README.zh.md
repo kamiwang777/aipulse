@@ -8,7 +8,7 @@
 ✦ 4.1% · 35.4%   🤖 12% · 33%
 ```
 
-[English](README.md) · [提 issue](https://github.com/kami/aipulse/issues) · [作者 Kami](https://github.com/kami)
+[English](README.md) · [提 issue](https://github.com/kamiwang777/aipulse/issues) · [作者 Kami (@kamiwang777)](https://github.com/kamiwang777)
 
 ---
 
@@ -44,7 +44,7 @@ curl -fsSL https://raw.githubusercontent.com/kami/aipulse/main/install.sh | bash
 或手动：
 
 ```bash
-git clone https://github.com/kami/aipulse.git
+git clone https://github.com/kamiwang777/aipulse.git
 cd aipulse
 ./install.sh
 ```
@@ -119,7 +119,7 @@ AIPulse **不会**：
 
 ## 许可
 
-MIT © [Kami](https://github.com/kami)
+MIT © [Kami (@kamiwang777)](https://github.com/kamiwang777)
 
 ## 致谢
 

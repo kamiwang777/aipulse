@@ -1,12 +1,12 @@
 #!/bin/bash
 # <bitbar.title>AIPulse</bitbar.title>
 # <bitbar.version>v1.0.0</bitbar.version>
-# <bitbar.author>Kami</bitbar.author>
-# <bitbar.author.github>kami</bitbar.author.github>
+# <bitbar.author>Kami (@kamiwang777)</bitbar.author>
+# <bitbar.author.github>kamiwang777</bitbar.author.github>
 # <bitbar.desc>Menubar monitor for AI coding subscriptions (Claude Code, Codex). Shows 5h / weekly quota %.</bitbar.desc>
 # <bitbar.image>https://raw.githubusercontent.com/kami/aipulse/main/screenshots/menubar.png</bitbar.image>
 # <bitbar.dependencies>node,bash</bitbar.dependencies>
-# <bitbar.abouturl>https://github.com/kami/aipulse</bitbar.abouturl>
+# <bitbar.abouturl>https://github.com/kamiwang777/aipulse</bitbar.abouturl>
 # <swiftbar.hideAbout>false</swiftbar.hideAbout>
 # <swiftbar.hideRunInTerminal>true</swiftbar.hideRunInTerminal>
 # <swiftbar.hideDisablePlugin>false</swiftbar.hideDisablePlugin>
@@ -14,7 +14,7 @@
 
 # =====================================================================
 # AIPulse — menubar monitor for AI coding subscriptions
-# Author: Kami  |  License: MIT  |  https://github.com/kami/aipulse
+# Author: Kami (@kamiwang777)  |  License: MIT  |  https://github.com/kamiwang777/aipulse
 # =====================================================================
 
 set -u
@@ -407,4 +407,4 @@ if [ "$CC_OK" = "true" ]; then
 fi
 [ "$CX_OK" = "true" ] && echo "📂 Codex sessions | bash='/usr/bin/open' param1='$HOME/.codex/sessions' terminal=false"
 echo "⚙️ $(t config) | bash='/usr/bin/open' param1='-t' param2='$CONFIG_FILE' terminal=false"
-echo "📘 $(t docs) | href=https://github.com/kami/aipulse"
+echo "📘 $(t docs) | href=https://github.com/kamiwang777/aipulse"
