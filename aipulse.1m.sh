@@ -20,6 +20,10 @@
 set -u
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 
+# ---------- embedded icons (base64 PNG 20x20) ----------
+ICON_CLAUDE="iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAABGdBTUEAALGPC/xhBQAAACBjSFJNAAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAAARGVYSWZNTQAqAAAACAABh2kABAAAAAEAAAAaAAAAAAADoAEAAwAAAAEAAQAAoAIABAAAAAEAAAAUoAMABAAAAAEAAAAUAAAAALLd8P0AAAGbaVRYdFhNTDpjb20uYWRvYmUueG1wAAAAAAA8eDp4bXBtZXRhIHhtbG5zOng9ImFkb2JlOm5zOm1ldGEvIiB4OnhtcHRrPSJYTVAgQ29yZSA2LjAuMCI+CiAgIDxyZGY6UkRGIHhtbG5zOnJkZj0iaHR0cDovL3d3dy53My5vcmcvMTk5OS8wMi8yMi1yZGYtc3ludGF4LW5zIyI+CiAgICAgIDxyZGY6RGVzY3JpcHRpb24gcmRmOmFib3V0PSIiCiAgICAgICAgICAgIHhtbG5zOmV4aWY9Imh0dHA6Ly9ucy5hZG9iZS5jb20vZXhpZi8xLjAvIj4KICAgICAgICAgPGV4aWY6UGl4ZWxYRGltZW5zaW9uPjY0PC9leGlmOlBpeGVsWERpbWVuc2lvbj4KICAgICAgICAgPGV4aWY6UGl4ZWxZRGltZW5zaW9uPjY0PC9leGlmOlBpeGVsWURpbWVuc2lvbj4KICAgICAgPC9yZGY6RGVzY3JpcHRpb24+CiAgIDwvcmRmOlJERj4KPC94OnhtcG1ldGE+Cpt6TVoAAACNSURBVDgRY/wPBF8un2D4eOEog5CdLwOnvBoDJYDpM9CwV9uWMvz/+YPhxaqpDL9eP6PEPAamT0CXsQlLMAg5BgANYmT49fIxZQYK2fkw/H7/iuHlulkMTBxcDBxyqhQZyAgKQ5A3QS7jAIYfC68g5QZSZAKaZiY0PsXcUQMpDkKG0TAcDUMyQmDwJxsAUhMw8WvE9EkAAAAASUVORK5CYII="
+ICON_CODEX="iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAABGdBTUEAALGPC/xhBQAAACBjSFJNAAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAAARGVYSWZNTQAqAAAACAABh2kABAAAAAEAAAAaAAAAAAADoAEAAwAAAAEAAQAAoAIABAAAAAEAAAAUoAMABAAAAAEAAAAUAAAAALLd8P0AAAGbaVRYdFhNTDpjb20uYWRvYmUueG1wAAAAAAA8eDp4bXBtZXRhIHhtbG5zOng9ImFkb2JlOm5zOm1ldGEvIiB4OnhtcHRrPSJYTVAgQ29yZSA2LjAuMCI+CiAgIDxyZGY6UkRGIHhtbG5zOnJkZj0iaHR0cDovL3d3dy53My5vcmcvMTk5OS8wMi8yMi1yZGYtc3ludGF4LW5zIyI+CiAgICAgIDxyZGY6RGVzY3JpcHRpb24gcmRmOmFib3V0PSIiCiAgICAgICAgICAgIHhtbG5zOmV4aWY9Imh0dHA6Ly9ucy5hZG9iZS5jb20vZXhpZi8xLjAvIj4KICAgICAgICAgPGV4aWY6UGl4ZWxYRGltZW5zaW9uPjY0PC9leGlmOlBpeGVsWERpbWVuc2lvbj4KICAgICAgICAgPGV4aWY6UGl4ZWxZRGltZW5zaW9uPjY0PC9leGlmOlBpeGVsWURpbWVuc2lvbj4KICAgICAgPC9yZGY6RGVzY3JpcHRpb24+CiAgIDwvcmRmOlJERj4KPC94OnhtcG1ldGE+Cpt6TVoAAACUSURBVDgR7ZIhDsUgEESHgkeTIGs4RFEkHKInwf0TcYMeAokjqcByAcIvthJMBeNG7NvZyZL2yHuPEAKMMTiOA1O6rqtprdt5ns1a21JKfcewaK31xzlHKQWEEAghoJQaDrk553DfNyilYIzhSTsM64Ok3xZjRM4Z+75DSjkPnCK8hreXn7YLOF0hVoerw4EGvv82f6CZbG+e2UMLAAAAAElFTkSuQmCC"
+
 # ---------- config loader ----------
 CONFIG_FILE="${AIPULSE_CONFIG:-$HOME/.config/aipulse/config.sh}"
 [ -f "$CONFIG_FILE" ] && source "$CONFIG_FILE"
@@ -332,16 +336,23 @@ CX_H5_DISP=$CX_H5; CX_WK_DISP=$CX_WK
 # Menubar line
 # =====================================================================
 parts=""
-[ "$CC_OK" = "true" ] && parts+="✦ ${CC_H5}% · ${CC_WK}%"
+[ "$CC_OK" = "true" ] && parts+="CC ${CC_H5}% · ${CC_WK}%"
 [ "$CC_OK" = "true" ] && [ "$CX_OK" = "true" ] && parts+="   "
-[ "$CX_OK" = "true" ] && parts+="🤖 ${CX_H5_DISP}% · ${CX_WK_DISP}%"
+[ "$CX_OK" = "true" ] && parts+="CX ${CX_H5_DISP}% · ${CX_WK_DISP}%"
 [ -z "$parts" ] && parts="AIPulse –"
 
 MAX_PCT=$(awk "BEGIN{m=0;
   if($CC_H5>m)m=$CC_H5; if($CC_WK>m)m=$CC_WK;
   if($CX_H5_DISP>m)m=$CX_H5_DISP; if($CX_WK_DISP>m)m=$CX_WK_DISP;
   print m}")
-echo "${parts} | color=$(theme_color $(color_for_pct $MAX_PCT))"
+# menubar: use Claude icon as the leading icon since it's the primary tool
+if [ "$CC_OK" = "true" ]; then
+  echo "${parts} | color=$(theme_color $(color_for_pct $MAX_PCT)) image=$ICON_CLAUDE"
+elif [ "$CX_OK" = "true" ]; then
+  echo "${parts} | color=$(theme_color $(color_for_pct $MAX_PCT)) image=$ICON_CODEX"
+else
+  echo "${parts} | color=$(theme_color $(color_for_pct $MAX_PCT))"
+fi
 
 # =====================================================================
 # Dropdown
@@ -352,7 +363,7 @@ echo "AIPulse by Kami (@kamiwang777) | size=14"
 # ---- Claude section ----
 if [ "$CC_OK" = "true" ]; then
   echo "---"
-  echo "✦ $(t claude) | size=13 color=$(theme_color claude)"
+  echo "$(t claude) | size=13 color=$(theme_color claude) image=$ICON_CLAUDE"
   CC_H5_C=$(theme_color $(color_for_pct $CC_H5))
   CC_WK_C=$(theme_color $(color_for_pct $CC_WK))
   CC_PROJ_C=$(theme_color $(color_for_pct $CC_PROJ))
@@ -375,13 +386,13 @@ if [ "$CC_OK" = "true" ]; then
   fi
 elif [ "$AIPULSE_HIDE_CLAUDE" != "1" ]; then
   echo "---"
-  echo "✦ $(t claude) · $(t no_data) | size=13 color=$(theme_color dim)"
+  echo "$(t claude) · $(t no_data) | size=13 color=$(theme_color dim) image=$ICON_CLAUDE"
 fi
 
 # ---- Codex section ----
 if [ "$CX_OK" = "true" ]; then
   echo "---"
-  echo "🤖 $(t codex) · ${CX_PLAN} $(t plan) | size=13 color=$(theme_color codex)"
+  echo "$(t codex) · ${CX_PLAN} $(t plan) | size=13 color=$(theme_color codex) image=$ICON_CODEX"
   CX_H5_C=$(theme_color $(color_for_pct $CX_H5_DISP))
   CX_WK_C=$(theme_color $(color_for_pct $CX_WK_DISP))
   CX_H5_NOTE=""; [ "$CX_H5_STALE" = "1" ] && CX_H5_NOTE=" ⟳ $(t last) ${CX_H5}%"
@@ -394,7 +405,7 @@ if [ "$CX_OK" = "true" ]; then
   echo "  $(t context): $(bar $CX_CTX_PCT) ${CX_CTX_PCT}% · $(fmt_tok $CX_LAST_CTX) · $(fmt_tok $CX_CTX_WIN)"
 elif [ "$AIPULSE_HIDE_CODEX" != "1" ]; then
   echo "---"
-  echo "🤖 $(t codex) · $(t not_installed) | size=13 color=$(theme_color dim)"
+  echo "$(t codex) · $(t not_installed) | size=13 color=$(theme_color dim) image=$ICON_CODEX"
 fi
 
 # ---- footer ----
