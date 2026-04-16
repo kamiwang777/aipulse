@@ -347,7 +347,7 @@ echo "${parts} | color=$(theme_color $(color_for_pct $MAX_PCT))"
 # Dropdown
 # =====================================================================
 echo "---"
-echo "$(t title) | size=14"
+echo "AIPulse by Kami (@kamiwang777) | size=14"
 
 # ---- Claude section ----
 if [ "$CC_OK" = "true" ]; then
