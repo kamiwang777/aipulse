@@ -21,6 +21,18 @@
 : "${AIPULSE_CC_5H_LIMIT:=max}"
 : "${AIPULSE_CC_WEEK_LIMIT:=max}"
 
+# ---- Optional subscription details shown in the dropdown ----
+# Leave blank if you do not want to show them.
+# Claude price auto-maps from AIPULSE_CLAUDE_SUBSCRIPTION when left blank:
+# Pro -> $20/mo, Max (5x) -> $100/mo, Max (20x) -> $200/mo
+: "${AIPULSE_CLAUDE_SUBSCRIPTION:=}"
+: "${AIPULSE_CLAUDE_PRICE:=}"
+: "${AIPULSE_CLAUDE_RENEWS:=}"
+# Codex price auto-maps from the detected plan when left blank.
+: "${AIPULSE_CODEX_SUBSCRIPTION:=}"
+: "${AIPULSE_CODEX_PRICE:=}"
+: "${AIPULSE_CODEX_RENEWS:=}"
+
 # ---- Color thresholds (%) ----
 : "${AIPULSE_THRESH_INFO:=50}"     # below = green, above = cyan
 : "${AIPULSE_THRESH_WARN:=70}"     # above = yellow
@@ -34,5 +46,7 @@
 
 export AIPULSE_LANG AIPULSE_THEME AIPULSE_HIDE_CLAUDE AIPULSE_HIDE_CODEX \
        AIPULSE_CC_5H_LIMIT AIPULSE_CC_WEEK_LIMIT \
+       AIPULSE_CLAUDE_SUBSCRIPTION AIPULSE_CLAUDE_PRICE AIPULSE_CLAUDE_RENEWS \
+       AIPULSE_CODEX_SUBSCRIPTION AIPULSE_CODEX_PRICE AIPULSE_CODEX_RENEWS \
        AIPULSE_THRESH_INFO AIPULSE_THRESH_WARN AIPULSE_THRESH_DANGER \
        AIPULSE_SHOW_COST

@@ -80,11 +80,20 @@ Anthropic **没有公开** Claude Pro/Max 订阅的精确 token 上限。AIPulse
 
 当 Claude 的 5h 窗口达到 100% 时，标题会追加类似 `(1h13m)` 的恢复倒计时，时间来自当前活动 `ccusage` block 的结束时间。
 
+下拉里的 Claude `费用` 默认也会按你配置的 `AIPULSE_CLAUDE_SUBSCRIPTION` 自动映射：
+- `Pro` -> `$20/mo`
+- `Max (5x)` -> `$100/mo`
+- `Max (20x)` -> `$200/mo`
+
+如果后续官网价格有变化，直接手动覆盖 `AIPULSE_CLAUDE_PRICE` 即可。
+
 ### Codex
 
 Codex CLI 的 session 保存在 `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl`。每次 API 响应都会带一个 `rate_limits` 块，包含 `primary`（5h）和 `secondary`（周）的精确百分比 —— 这是 **OpenAI 服务端直接下发**的数字，Codex 自己也是这么用的。
 
 如果 `resets_at` 时间已过，会显示 `⟳ last X%` 提示该窗口已重置。
+
+下拉里的 Codex `费用` 会优先按本地识别到的 `plan` 自动映射；只有你手动填写 `AIPULSE_CODEX_PRICE` 时才会覆盖。
 
 ## 常见问题
 

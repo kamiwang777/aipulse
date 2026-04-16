@@ -31,6 +31,12 @@ CONFIG_FILE="${AIPULSE_CONFIG:-$HOME/.config/aipulse/config.sh}"
 : "${AIPULSE_HIDE_CODEX:=0}"            # 1 to hide
 : "${AIPULSE_CC_5H_LIMIT:=max}"         # "max" = ccusage historical peak, or a number
 : "${AIPULSE_CC_WEEK_LIMIT:=max}"       # "max" or a number
+: "${AIPULSE_CLAUDE_SUBSCRIPTION:=}"    # e.g. "Max (5x)"
+: "${AIPULSE_CLAUDE_PRICE:=}"           # e.g. "$200/mo"
+: "${AIPULSE_CLAUDE_RENEWS:=}"          # e.g. "2026-05-16"
+: "${AIPULSE_CODEX_SUBSCRIPTION:=}"     # optional override for detected Codex plan
+: "${AIPULSE_CODEX_PRICE:=}"            # e.g. "$20/mo"
+: "${AIPULSE_CODEX_RENEWS:=}"           # e.g. "2026-05-01"
 : "${AIPULSE_THRESH_WARN:=70}"          # % for yellow
 : "${AIPULSE_THRESH_DANGER:=90}"        # % for red
 : "${AIPULSE_THRESH_INFO:=50}"          # % for cyan (below = green)
@@ -56,6 +62,9 @@ t() {
         thisweek)     echo "本周总计" ;;
         peakweek)     echo "历史峰值周" ;;
         plan)         echo "套餐" ;;
+        subscription) echo "订阅" ;;
+        price)        echo "费用" ;;
+        renews)       echo "到期" ;;
         resets)       echo "重置" ;;
         lastsession)  echo "最近会话" ;;
         context)      echo "上下文" ;;
@@ -84,6 +93,9 @@ t() {
         thisweek)     echo "This week" ;;
         peakweek)     echo "peak week" ;;
         plan)         echo "plan" ;;
+        subscription) echo "Subscription" ;;
+        price)        echo "Price" ;;
+        renews)       echo "Renews" ;;
         resets)       echo "resets" ;;
         lastsession)  echo "Last session" ;;
         context)      echo "Context" ;;
@@ -177,6 +189,25 @@ fmt_countdown() {
   else echo "${m}m"; fi
 }
 
+fmt_days_until() {
+  local renew="${1:-}"
+  [ -z "$renew" ] && { echo "-"; return; }
+  local renew_date="${renew%%T*}"
+  local renew_epoch
+  renew_epoch=$(date -j -f "%Y-%m-%d" "$renew_date" +%s 2>/dev/null)
+  [ -z "$renew_epoch" ] && { echo "$renew"; return; }
+  local now_epoch today_epoch diff_days
+  now_epoch=$(date +%s)
+  today_epoch=$((now_epoch - (now_epoch % 86400)))
+  diff_days=$(((renew_epoch - today_epoch) / 86400))
+  [ "$diff_days" -lt 0 ] && diff_days=0
+  if [ "$AIPULSE_LANG" = "zh" ]; then
+    echo "${diff_days}天（${renew_date}）"
+  else
+    echo "${diff_days}d (${renew_date})"
+  fi
+}
+
 bar() {
   local pct=${1:-0}
   local filled empty s=""
@@ -191,6 +222,33 @@ get() {
   echo "$1" | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{try{const j=JSON.parse(d);console.log(j.$2!==undefined?j.$2:'');}catch(e){console.log('');}});" 2>/dev/null
 }
 
+display_value() {
+  local v="${1:-}"
+  [ -n "$v" ] && echo "$v" || echo "-"
+}
+
+codex_price_for_plan() {
+  local plan="${1:-}"
+  case "$plan" in
+    free) echo "\$0/mo" ;;
+    plus) echo "\$20/mo" ;;
+    pro_100) echo "\$100/mo" ;;
+    pro_200) echo "\$200/mo" ;;
+    pro) echo "\$100-\$200/mo" ;;
+    *) echo "-" ;;
+  esac
+}
+
+claude_price_for_plan() {
+  local plan="${1:-}"
+  case "${plan,,}" in
+    *max*20x*) echo "\$200/mo" ;;
+    *max*5x*) echo "\$100/mo" ;;
+    *pro*) echo "\$20/mo" ;;
+    *) echo "-" ;;
+  esac
+}
+
 # =====================================================================
 # Claude Code provider (via ccusage)
 # =====================================================================
@@ -200,6 +258,7 @@ fetch_claude() {
   local blocks weekly
   blocks=$("$AIPULSE_NPX_BIN" -y ccusage@latest blocks --active --token-limit "$AIPULSE_CC_5H_LIMIT" --json 2>/dev/null)
   weekly=$("$AIPULSE_NPX_BIN" -y ccusage@latest weekly --json 2>/dev/null)
+  local claude_account_file="$HOME/.claude.json"
 
   [ -z "$blocks" ] && { echo "{}"; return; }
 
@@ -207,6 +266,7 @@ fetch_claude() {
     const blocks=JSON.parse(process.argv[1]||"{}");
     const weekly=JSON.parse(process.argv[2]||"{}");
     const wkLimitArg=process.argv[3]||"max";
+    const accountPath=process.argv[4]||"";
 
     const a=(blocks.blocks||[]).find(b=>b.isActive);
     let o={available:true};
@@ -244,8 +304,27 @@ fetch_claude() {
     o.wk_limit=wkLimit;
     o.wk_pct=wkLimit?+(o.wk_tok/wkLimit*100).toFixed(1):0;
 
+    try{
+      const fs=require("fs");
+      const account=JSON.parse(fs.readFileSync(accountPath,"utf8"));
+      const oauth=account.oauthAccount||{};
+      o.billing_type=oauth.billingType||"";
+      o.sub_created=oauth.subscriptionCreatedAt||"";
+      if(o.sub_created){
+        const created=new Date(o.sub_created);
+        if(!Number.isNaN(created.getTime())){
+          const next=new Date(created);
+          const nowTs=now.getTime();
+          while(next.getTime()<=nowTs){
+            next.setMonth(next.getMonth()+1);
+          }
+          o.renews_at=next.toISOString().slice(0,10);
+        }
+      }
+    }catch(e){}
+
     console.log(JSON.stringify(o));
-  ' "$blocks" "$weekly" "$AIPULSE_CC_WEEK_LIMIT" 2>/dev/null
+  ' "$blocks" "$weekly" "$AIPULSE_CC_WEEK_LIMIT" "$claude_account_file" 2>/dev/null
 }
 
 # =====================================================================
@@ -255,6 +334,7 @@ fetch_codex() {
   [ "$AIPULSE_HIDE_CODEX" = "1" ] && { echo "{}"; return; }
   local dir="$HOME/.codex/sessions"
   [ ! -d "$dir" ] && { echo "{}"; return; }
+  local auth_file="$HOME/.codex/auth.json"
 
   find "$dir" -name "rollout-*.jsonl" -type f 2>/dev/null | \
     xargs -I{} tail -n 200 "{}" 2>/dev/null | \
@@ -276,6 +356,22 @@ fetch_codex() {
         const tot=info.total_token_usage||{}, last=info.last_token_usage||{};
         const ctx=info.model_context_window||0;
         const lastCtx=last.total_tokens||0;
+        const authPath=process.argv[1];
+        let authMeta={};
+        try{
+          const fs=require("fs");
+          const auth=JSON.parse(fs.readFileSync(authPath,"utf8"));
+          const token=auth?.tokens?.id_token||auth?.tokens?.access_token||"";
+          const payloadPart=token.split(".")[1]||"";
+          if(payloadPart){
+            const normalized=payloadPart.replace(/-/g,"+").replace(/_/g,"/");
+            const padded=normalized + "=".repeat((4-normalized.length%4)%4);
+            const decoded=JSON.parse(Buffer.from(padded,"base64").toString("utf8"));
+            authMeta=(decoded["https://api.openai.com/auth"])||{};
+          }
+        }catch(e){}
+        const authPlan=authMeta.chatgpt_plan_type||"";
+        const subUntil=authMeta.chatgpt_subscription_active_until||"";
         console.log(JSON.stringify({
           available:true,
           h5_pct: pri.used_percent||0,
@@ -283,6 +379,8 @@ fetch_codex() {
           wk_pct: sec.used_percent||0,
           wk_reset: sec.resets_at||0,
           plan: rl.plan_type||"-",
+          account_plan: authPlan,
+          renews_at: subUntil,
           total_tok: tot.total_tokens||0,
           in_tok: tot.input_tokens||0,
           cache_tok: tot.cached_input_tokens||0,
@@ -294,7 +392,7 @@ fetch_codex() {
           ts: latest.timestamp
         }));
       });
-    ' 2>/dev/null
+    ' "$auth_file" 2>/dev/null
 }
 
 CC=$(fetch_claude)
@@ -318,6 +416,16 @@ CC_MODELS=$(get "$CC" models);  CC_MODELS=${CC_MODELS:--}
 CC_WKTOK=$(get "$CC" wk_tok);   CC_WKTOK=${CC_WKTOK:-0}
 CC_WKMAX=$(get "$CC" wk_limit); CC_WKMAX=${CC_WKMAX:-0}
 CC_WKCOST=$(get "$CC" wk_cost); CC_WKCOST=${CC_WKCOST:-0}
+CC_BILLING_TYPE=$(get "$CC" billing_type); CC_BILLING_TYPE=${CC_BILLING_TYPE:-}
+CC_AUTO_RENEWS=$(get "$CC" renews_at); CC_AUTO_RENEWS=${CC_AUTO_RENEWS:-}
+CC_SUB_DISPLAY=$(display_value "$AIPULSE_CLAUDE_SUBSCRIPTION")
+CC_PRICE_DISPLAY="$AIPULSE_CLAUDE_PRICE"
+[ -z "$CC_PRICE_DISPLAY" ] && CC_PRICE_DISPLAY="$(claude_price_for_plan "$AIPULSE_CLAUDE_SUBSCRIPTION")"
+CC_PRICE_DISPLAY=$(display_value "$CC_PRICE_DISPLAY")
+CC_RENEWS_DISPLAY="$AIPULSE_CLAUDE_RENEWS"
+[ -z "$CC_RENEWS_DISPLAY" ] && CC_RENEWS_DISPLAY="$CC_AUTO_RENEWS"
+CC_RENEWS_DISPLAY=$(display_value "$CC_RENEWS_DISPLAY")
+CC_RENEWS_SUMMARY=$(fmt_days_until "$CC_RENEWS_DISPLAY")
 
 # ---------- derive Codex values ----------
 CX_H5=$(get "$CX" h5_pct);       CX_H5=${CX_H5:-0}
@@ -325,6 +433,8 @@ CX_WK=$(get "$CX" wk_pct);       CX_WK=${CX_WK:-0}
 CX_H5_RESET=$(get "$CX" h5_reset); CX_H5_RESET=${CX_H5_RESET:-0}
 CX_WK_RESET=$(get "$CX" wk_reset); CX_WK_RESET=${CX_WK_RESET:-0}
 CX_PLAN=$(get "$CX" plan);       CX_PLAN=${CX_PLAN:--}
+CX_ACCOUNT_PLAN=$(get "$CX" account_plan); CX_ACCOUNT_PLAN=${CX_ACCOUNT_PLAN:-}
+CX_RENEWS_AT=$(get "$CX" renews_at); CX_RENEWS_AT=${CX_RENEWS_AT:-}
 CX_TOT=$(get "$CX" total_tok);   CX_TOT=${CX_TOT:-0}
 CX_IN=$(get "$CX" in_tok);       CX_IN=${CX_IN:-0}
 CX_CACHE=$(get "$CX" cache_tok); CX_CACHE=${CX_CACHE:-0}
@@ -333,6 +443,17 @@ CX_CTX_WIN=$(get "$CX" ctx_win); CX_CTX_WIN=${CX_CTX_WIN:-0}
 CX_LAST_CTX=$(get "$CX" last_ctx); CX_LAST_CTX=${CX_LAST_CTX:-0}
 CX_CTX_PCT=$(get "$CX" ctx_pct); CX_CTX_PCT=${CX_CTX_PCT:-0}
 CX_TS=$(get "$CX" ts)
+CX_PLAN_DISPLAY="$CX_ACCOUNT_PLAN"
+[ -z "$CX_PLAN_DISPLAY" ] && CX_PLAN_DISPLAY="$CX_PLAN"
+[ -n "${AIPULSE_CODEX_SUBSCRIPTION:-}" ] && CX_PLAN_DISPLAY="$AIPULSE_CODEX_SUBSCRIPTION"
+[ -z "$CX_PLAN_DISPLAY" ] && CX_PLAN_DISPLAY="-"
+CX_PRICE_DISPLAY="$AIPULSE_CODEX_PRICE"
+[ -z "$CX_PRICE_DISPLAY" ] && CX_PRICE_DISPLAY="$(codex_price_for_plan "$CX_PLAN_DISPLAY")"
+CX_PRICE_DISPLAY=$(display_value "$CX_PRICE_DISPLAY")
+CX_RENEWS_DISPLAY="$AIPULSE_CODEX_RENEWS"
+[ -z "$CX_RENEWS_DISPLAY" ] && CX_RENEWS_DISPLAY="${CX_RENEWS_AT%%T*}"
+CX_RENEWS_DISPLAY=$(display_value "$CX_RENEWS_DISPLAY")
+CX_RENEWS_SUMMARY=$(fmt_days_until "$CX_RENEWS_DISPLAY")
 
 NOW=$(date +%s)
 CC_H5_EXHAUSTED=0
@@ -367,7 +488,7 @@ echo "AIPulse by Kami (@kamiwang777) | size=14"
 # ---- Claude section ----
 if [ "$CC_OK" = "true" ]; then
   echo "---"
-  echo "✦ $(t claude) | size=13 color=$(theme_color claude)"
+  echo "✦ $(t claude) · ${CC_SUB_DISPLAY} · ${CC_RENEWS_SUMMARY} | size=13 color=$(theme_color claude)"
   CC_H5_C=$(theme_color $(color_for_pct $CC_H5))
   CC_WK_C=$(theme_color $(color_for_pct $CC_WK))
   CC_PROJ_C=$(theme_color $(color_for_pct $CC_PROJ))
@@ -383,6 +504,7 @@ if [ "$CC_OK" = "true" ]; then
   fi
   echo "  $(t burnrate): $(fmt_tok $CC_BURN)/min · $(t remaining) $(fmt_time $CC_REMAIN)"
   echo "  $(t models): ${CC_MODELS}"
+  echo "  $(t price): ${CC_PRICE_DISPLAY}"
   if [ "$AIPULSE_SHOW_COST" = "1" ]; then
     echo "  $(t thisweek): $(fmt_tok $CC_WKTOK) · \$${CC_WKCOST}  ($(t peakweek) $(fmt_tok $CC_WKMAX))"
   else
@@ -396,7 +518,7 @@ fi
 # ---- Codex section ----
 if [ "$CX_OK" = "true" ]; then
   echo "---"
-  echo "🤖 $(t codex) · ${CX_PLAN} $(t plan) | size=13 color=$(theme_color codex)"
+  echo "🤖 $(t codex) · ${CX_PLAN_DISPLAY} · ${CX_RENEWS_SUMMARY} | size=13 color=$(theme_color codex)"
   CX_H5_C=$(theme_color $(color_for_pct $CX_H5_DISP))
   CX_WK_C=$(theme_color $(color_for_pct $CX_WK_DISP))
   CX_H5_NOTE=""; [ "$CX_H5_STALE" = "1" ] && CX_H5_NOTE=" ⟳ $(t last) ${CX_H5}%"
@@ -405,6 +527,7 @@ if [ "$CX_OK" = "true" ]; then
   echo "  $(t week)  $(bar $CX_WK_DISP)  ${CX_WK_DISP}%${CX_WK_NOTE} | color=${CX_WK_C} font=Menlo"
   echo "  ─────── | color=$(theme_color dim)"
   echo "  $(t fivehour) $(t resets): $(fmt_countdown $CX_H5_RESET) · $(t week) $(t resets): $(fmt_countdown $CX_WK_RESET)"
+  echo "  $(t price): ${CX_PRICE_DISPLAY}"
   echo "  $(t lastsession): $(fmt_tok $CX_TOT) (in $(fmt_tok $CX_IN) · cache $(fmt_tok $CX_CACHE) · out $(fmt_tok $CX_OUT))"
   echo "  $(t context): $(bar $CX_CTX_PCT) ${CX_CTX_PCT}% · $(fmt_tok $CX_LAST_CTX) · $(fmt_tok $CX_CTX_WIN)"
 elif [ "$AIPULSE_HIDE_CODEX" != "1" ]; then

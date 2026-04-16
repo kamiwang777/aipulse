@@ -80,11 +80,20 @@ If you know your plan's approximate ceiling (e.g. Max at ~200M tokens per 5h), s
 
 When the Claude 5h window reaches 100%, the title appends a reset countdown like `(1h13m)` based on the active `ccusage` block end time.
 
+The Claude dropdown `Price` also defaults to a local mapping from `AIPULSE_CLAUDE_SUBSCRIPTION`:
+- `Pro` -> `$20/mo`
+- `Max (5x)` -> `$100/mo`
+- `Max (20x)` -> `$200/mo`
+
+If pricing changes later, set `AIPULSE_CLAUDE_PRICE` to override it manually.
+
 ### Codex
 
 Codex CLI sessions are stored as JSONL at `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl`. Every API response includes a `rate_limits` block from OpenAI showing `primary` (5h) and `secondary` (weekly) percentages directly. AIPulse reads the latest entry — this is **literally** what Codex's internal usage tracker uses.
 
 If the `resets_at` timestamp has passed, the window is marked with `⟳ last X%` (we show 0% until Codex reports fresh data).
+
+The Codex dropdown `Price` defaults to a local mapping from the detected plan, and only uses `AIPULSE_CODEX_PRICE` when you explicitly override it.
 
 ## FAQ
 
