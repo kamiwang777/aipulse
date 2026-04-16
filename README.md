@@ -12,6 +12,8 @@
 
 ---
 
+Current version: `v1.1.0`
+
 ## Features
 
 - **Zero-config** — auto-detects Claude Code and Codex from your local data
@@ -69,6 +71,31 @@ Edit `~/.config/aipulse/config.sh` (created on first install):
 | `AIPULSE_SHOW_COST` | `1` | Show `$` figures in dropdown |
 
 After editing, click **Refresh** in the SwiftBar menu (or wait a minute).
+
+## Upgrade
+
+```bash
+cd aipulse
+git pull
+./install.sh
+```
+
+This keeps your existing `~/.config/aipulse/config.sh` intact and refreshes the SwiftBar plugin file in `~/.swiftbar-plugins/`.
+
+After upgrading:
+- Click `Refresh` in the AIPulse menu, or restart SwiftBar
+- Confirm the footer shows `Version v1.1.0`
+
+## Versioning
+
+- The current release number lives in [`VERSION`](VERSION)
+- The SwiftBar plugin metadata mirrors that version in `aipulse.1m.sh`
+- User-facing release notes live in [`CHANGELOG.md`](CHANGELOG.md)
+
+For future releases, bump these three places together:
+- `VERSION`
+- `aipulse.1m.sh` `bitbar.version` and `AIPULSE_VERSION`
+- `CHANGELOG.md`
 
 ## How it works
 

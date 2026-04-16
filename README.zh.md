@@ -12,6 +12,8 @@
 
 ---
 
+当前版本：`v1.1.0`
+
 ## 特性
 
 - **零配置** — 自动检测本地的 Claude Code / Codex 数据
@@ -69,6 +71,31 @@ cd aipulse
 | `AIPULSE_SHOW_COST` | `1` | 是否显示 `$` 金额 |
 
 改完在 SwiftBar 菜单里点 **Refresh**（或等一分钟自动刷新）。
+
+## 升级
+
+```bash
+cd aipulse
+git pull
+./install.sh
+```
+
+这样会保留你现有的 `~/.config/aipulse/config.sh`，同时刷新 `~/.swiftbar-plugins/` 里的插件文件。
+
+升级后：
+- 在 AIPulse 菜单里点一次 `Refresh`，或者重启 SwiftBar
+- 确认下拉底部显示 `Version v1.1.0`
+
+## 版本管理
+
+- 当前发布版本号放在 [`VERSION`](VERSION)
+- SwiftBar 插件元数据里的版本号与它保持一致
+- 面向用户的升级记录放在 [`CHANGELOG.md`](CHANGELOG.md)
+
+后续每次发版，至少同步更新这三处：
+- `VERSION`
+- `aipulse.1m.sh` 里的 `bitbar.version` 和 `AIPULSE_VERSION`
+- `CHANGELOG.md`
 
 ## 原理
 

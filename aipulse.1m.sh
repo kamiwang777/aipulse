@@ -1,6 +1,6 @@
 #!/bin/bash
 # <bitbar.title>AIPulse</bitbar.title>
-# <bitbar.version>v1.0.0</bitbar.version>
+# <bitbar.version>v1.1.0</bitbar.version>
 # <bitbar.author>Kami (@kamiwang777)</bitbar.author>
 # <bitbar.author.github>kamiwang777</bitbar.author.github>
 # <bitbar.desc>Menubar monitor for AI coding subscriptions (Claude Code, Codex). Shows 5h / weekly quota %.</bitbar.desc>
@@ -19,6 +19,7 @@
 
 set -u
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
+AIPULSE_VERSION="1.1.0"
 
 
 # ---------- config loader ----------
@@ -537,6 +538,7 @@ fi
 
 # ---- footer ----
 echo "---"
+echo "Version v${AIPULSE_VERSION} | size=10 color=$(theme_color dim)"
 echo "ℹ️ $(t footnote) | size=10 color=$(theme_color dim)"
 echo "🔄 $(t refresh) | refresh=true"
 if [ "$CC_OK" = "true" ]; then
