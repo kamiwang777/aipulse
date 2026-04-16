@@ -26,7 +26,7 @@
 
 ## 截图
 
-![menubar](screenshots/menubar.svg)
+![AIPulse Screenshot](screenshots/menubar.png)
 
 ## 依赖
 

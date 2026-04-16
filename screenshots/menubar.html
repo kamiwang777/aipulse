@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=560, initial-scale=1.0">
+<title>AIPulse SwiftBar Dropdown</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: transparent;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    width: 600px;
+    padding: 0;
+  }
+
+  /* macOS Menubar strip */
+  .menubar {
+    background: linear-gradient(180deg, #2a2a2a 0%, #1e1e1e 100%);
+    height: 25px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 12px;
+    font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 13px;
+    color: #e0e0e0;
+    border-bottom: 1px solid #000;
+    position: relative;
+  }
+
+  .menubar-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .menubar-left .apple-logo {
+    font-size: 14px;
+    opacity: 0.9;
+  }
+
+  .menubar-left .app-menus {
+    display: flex;
+    gap: 14px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #ccc;
+  }
+
+  .menubar-right {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-size: 12.5px;
+  }
+
+  .plugin-text {
+    font-family: 'Menlo', 'Monaco', 'SF Mono', monospace;
+    font-size: 12px;
+    color: #00ff88;
+    letter-spacing: 0.2px;
+    background: rgba(255,255,255,0.06);
+    padding: 1px 8px;
+    border-radius: 3px;
+  }
+
+  .menubar-clock {
+    color: #e0e0e0;
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  .menubar-icons {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: #ccc;
+  }
+
+  /* Dropdown panel */
+  .dropdown-wrapper {
+    display: flex;
+    justify-content: center;
+    padding-top: 4px;
+    position: relative;
+  }
+
+  .dropdown {
+    width: 390px;
+    background: #1c1c2e;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    box-shadow:
+      0 8px 32px rgba(0,0,0,0.6),
+      0 2px 8px rgba(0,0,0,0.4),
+      inset 0 1px 0 rgba(255,255,255,0.04);
+    overflow: hidden;
+    font-family: 'Menlo', 'Monaco', 'SF Mono', monospace;
+    font-size: 11.5px;
+    color: #c8c8d4;
+    padding: 8px 0;
+  }
+
+  .dropdown-title {
+    text-align: center;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    color: #e8e8f0;
+    padding: 4px 0 8px 0;
+    letter-spacing: 0.5px;
+  }
+
+  .section-header {
+    padding: 6px 14px 4px 14px;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+  }
+
+  .section-header.claude {
+    color: #ff9966;
+  }
+
+  .section-header.codex {
+    color: #00d488;
+  }
+
+  .row {
+    padding: 2px 14px;
+    line-height: 1.6;
+    white-space: pre;
+  }
+
+  .row.green { color: #00ff88; }
+  .row.gray { color: #888899; }
+  .row.yellow { color: #ffcc44; }
+  .row.orange { color: #ff9944; }
+  .row.dim { color: #555566; font-size: 10.5px; }
+  .row.cyan { color: #00ddee; }
+
+  .separator {
+    height: 1px;
+    background: rgba(255,255,255,0.06);
+    margin: 5px 14px;
+  }
+
+  .thick-separator {
+    height: 1px;
+    background: rgba(255,255,255,0.10);
+    margin: 8px 0;
+  }
+
+  .footer-actions {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    padding: 6px 14px 4px 14px;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+    font-size: 11px;
+    color: #6688aa;
+  }
+
+  .footer-actions span {
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: background 0.15s;
+  }
+
+  .footer-actions span:hover {
+    background: rgba(255,255,255,0.06);
+  }
+
+  .dropdown-wrapper {
+    padding-bottom: 12px;
+  }
+
+  /* Progress bar using styled divs */
+  .progress-row {
+    display: flex;
+    align-items: center;
+    padding: 2.5px 14px;
+    gap: 6px;
+    font-size: 11.5px;
+    color: #00ff88;
+    line-height: 1.5;
+  }
+
+  .progress-label {
+    width: 36px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  .progress-bar-track {
+    width: 100px;
+    height: 10px;
+    background: #2a2a3e;
+    border-radius: 2px;
+    overflow: hidden;
+    flex-shrink: 0;
+    border: 1px solid rgba(255,255,255,0.05);
+  }
+
+  .progress-bar-fill {
+    height: 100%;
+    border-radius: 1px;
+    transition: width 0.3s;
+  }
+
+  .progress-bar-fill.green { background: linear-gradient(90deg, #00cc66, #00ff88); }
+  .progress-bar-fill.yellow { background: linear-gradient(90deg, #cc9900, #ffcc44); }
+  .progress-bar-fill.cyan { background: linear-gradient(90deg, #0099aa, #00ddee); }
+
+  .progress-pct {
+    width: 44px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+</style>
+</head>
+<body>
+
+<!-- macOS Menubar -->
+<div class="menubar">
+  <div class="menubar-left">
+    <span class="apple-logo"></span>
+    <div class="app-menus">
+      <span>Finder</span>
+      <span>File</span>
+      <span>Edit</span>
+      <span>View</span>
+      <span>Go</span>
+      <span>Window</span>
+      <span>Help</span>
+    </div>
+  </div>
+  <div class="menubar-right">
+    <span class="plugin-text">✦ 20.2% · 40.5%&nbsp;&nbsp;&nbsp;🤖 12% · 33%</span>
+    <span class="menubar-icons">⟐ ⌃</span>
+    <span class="menubar-clock">Wed 09:15</span>
+  </div>
+</div>
+
+<!-- Dropdown -->
+<div class="dropdown-wrapper">
+  <div class="dropdown">
+
+    <div class="dropdown-title">AI Coding Quota</div>
+
+    <div class="thick-separator"></div>
+
+    <!-- Claude Code Section -->
+    <div class="section-header claude">✦ Claude Code</div>
+
+    <div class="progress-row">
+      <span class="progress-label">5h</span>
+      <div class="progress-bar-track">
+        <div class="progress-bar-fill green" style="width: 20.2%"></div>
+      </div>
+      <span class="progress-pct">20.2%</span>
+    </div>
+
+    <div class="progress-row">
+      <span class="progress-label">Week</span>
+      <div class="progress-bar-track">
+        <div class="progress-bar-fill green" style="width: 40.5%"></div>
+      </div>
+      <span class="progress-pct">40.5%</span>
+    </div>
+
+    <div class="separator"></div>
+
+    <div class="row gray">5h used: 32.0M · 157.9M · $21.42</div>
+    <div class="progress-row" style="color: #ffcc44;">
+      <span class="progress-label" style="width: 66px; color: #888899;">projected:</span>
+      <div class="progress-bar-track">
+        <div class="progress-bar-fill yellow" style="width: 74.9%"></div>
+      </div>
+      <span class="progress-pct" style="width: auto;">74.9% · $79.28</span>
+    </div>
+    <div class="row gray">Burn rate: 471.0K/min · remaining 3h3m</div>
+    <div class="row gray">Models: opus, haiku</div>
+    <div class="row gray">This week: 200.3M · $133.26  (peak week 494.0M)</div>
+
+    <div class="thick-separator"></div>
+
+    <!-- Codex Section -->
+    <div class="section-header codex">🤖 Codex · pro plan</div>
+
+    <div class="progress-row">
+      <span class="progress-label">5h</span>
+      <div class="progress-bar-track">
+        <div class="progress-bar-fill green" style="width: 12%"></div>
+      </div>
+      <span class="progress-pct">12%</span>
+    </div>
+
+    <div class="progress-row">
+      <span class="progress-label">Week</span>
+      <div class="progress-bar-track">
+        <div class="progress-bar-fill green" style="width: 33%"></div>
+      </div>
+      <span class="progress-pct">33%</span>
+    </div>
+
+    <div class="separator"></div>
+
+    <div class="row gray">5h resets: 2h14m · Week resets: 4d12h</div>
+    <div class="row gray">Last session: 96.3K (in 93.4K · cache 49.4K · out 2.9K)</div>
+    <div class="progress-row" style="color: #888899;">
+      <span class="progress-label" style="width: 56px;">Context:</span>
+      <div class="progress-bar-track">
+        <div class="progress-bar-fill cyan" style="width: 18.3%"></div>
+      </div>
+      <span class="progress-pct" style="width: auto;">18.3% · 47.3K / 258.4K</span>
+    </div>
+
+    <div class="thick-separator"></div>
+
+    <!-- Footer -->
+    <div class="row dim" style="padding: 2px 14px; line-height: 1.5;">ℹ️  Claude: ccusage historical peak baseline</div>
+    <div class="row dim" style="padding: 0 14px 4px 14px; line-height: 1.5;">    Codex: official rate_limits</div>
+
+    <div class="separator"></div>
+
+    <div class="footer-actions">
+      <span>🔄 Refresh</span>
+      <span>📊 ccusage blocks</span>
+      <span>📈 ccusage monthly</span>
+      <span>📘 Docs</span>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>

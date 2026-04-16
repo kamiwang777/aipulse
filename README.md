@@ -26,7 +26,7 @@
 
 ## Screenshot
 
-![menubar](screenshots/menubar.svg)
+![AIPulse Screenshot](screenshots/menubar.png)
 
 ## Requirements
 
