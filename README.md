@@ -26,7 +26,7 @@
 
 ## Screenshot
 
-![menubar](screenshots/menubar.png)
+![menubar](screenshots/menubar.svg)
 
 ## Requirements
 

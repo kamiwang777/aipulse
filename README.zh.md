@@ -26,7 +26,7 @@
 
 ## 截图
 
-![menubar](screenshots/menubar.png)
+![menubar](screenshots/menubar.svg)
 
 ## 依赖
 
