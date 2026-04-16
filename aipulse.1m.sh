@@ -132,6 +132,16 @@ color_for_pct() {
     }'
 }
 
+status_icon() {
+  local pct=${1:-0}
+  case "$(color_for_pct "$pct")" in
+    red) echo "🔴" ;;
+    yellow) echo "🟡" ;;
+    cyan) echo "🔵" ;;
+    *) echo "🟢" ;;
+  esac
+}
+
 # ---------- dependency check ----------
 if ! command -v node >/dev/null 2>&1 || ! command -v "$AIPULSE_NPX_BIN" >/dev/null 2>&1; then
   echo "AIPulse ⚠️ | color=$(theme_color red)"
@@ -203,16 +213,18 @@ fetch_claude() {
     if(a){
       const lim=(a.tokenLimitStatus&&a.tokenLimitStatus.limit)||0;
       const proj=a.projection||{totalTokens:0,totalCost:0,remainingMinutes:0};
+      const resetAt=a.endTime?Math.floor(new Date(a.endTime).getTime()/1000):0;
       o.h5_pct=lim?+(a.totalTokens/lim*100).toFixed(1):0;
       o.proj_pct=lim?+(proj.totalTokens/lim*100).toFixed(1):0;
       o.h5_cost=+a.costUSD.toFixed(2);
       o.h5_tok=a.totalTokens;
       o.h5_limit=lim;
+      o.h5_reset=resetAt;
       o.proj_cost=+(proj.totalCost||0).toFixed(2);
       o.remain=proj.remainingMinutes||0;
       o.burn=a.burnRate?Math.round(a.burnRate.tokensPerMinute):0;
       o.models=(a.models||[]).map(x=>x.replace("claude-","").replace(/-\d+.*/,"")).join(",")||"-";
-    } else { o.h5_pct=0; o.h5_cost=0; o.h5_tok=0; o.h5_limit=0; o.proj_pct=0; o.proj_cost=0; o.remain=0; o.burn=0; o.models="-"; }
+    } else { o.h5_pct=0; o.h5_cost=0; o.h5_tok=0; o.h5_limit=0; o.h5_reset=0; o.proj_pct=0; o.proj_cost=0; o.remain=0; o.burn=0; o.models="-"; }
 
     const weeks=weekly.weekly||[];
     const now=new Date();
@@ -297,6 +309,7 @@ CC_WK=$(get "$CC" wk_pct);      CC_WK=${CC_WK:-0}
 CC_COST=$(get "$CC" h5_cost);   CC_COST=${CC_COST:-0}
 CC_TOK=$(get "$CC" h5_tok);     CC_TOK=${CC_TOK:-0}
 CC_LIMIT=$(get "$CC" h5_limit); CC_LIMIT=${CC_LIMIT:-0}
+CC_H5_RESET=$(get "$CC" h5_reset); CC_H5_RESET=${CC_H5_RESET:-0}
 CC_PROJ=$(get "$CC" proj_pct);  CC_PROJ=${CC_PROJ:-0}
 CC_PROJC=$(get "$CC" proj_cost); CC_PROJC=${CC_PROJC:-0}
 CC_REMAIN=$(get "$CC" remain);  CC_REMAIN=${CC_REMAIN:-0}
@@ -322,27 +335,28 @@ CX_CTX_PCT=$(get "$CX" ctx_pct); CX_CTX_PCT=${CX_CTX_PCT:-0}
 CX_TS=$(get "$CX" ts)
 
 NOW=$(date +%s)
+CC_H5_EXHAUSTED=0
+awk "BEGIN{exit !($CC_H5>=100)}" && CC_H5_EXHAUSTED=1
 CX_H5_STALE=0; CX_WK_STALE=0
 [ "${CX_H5_RESET:-0}" -gt 0 ] 2>/dev/null && [ "$NOW" -ge "$CX_H5_RESET" ] && CX_H5_STALE=1
 [ "${CX_WK_RESET:-0}" -gt 0 ] 2>/dev/null && [ "$NOW" -ge "$CX_WK_RESET" ] && CX_WK_STALE=1
 CX_H5_DISP=$CX_H5; CX_WK_DISP=$CX_WK
 [ "$CX_H5_STALE" = "1" ] && CX_H5_DISP=0
 [ "$CX_WK_STALE" = "1" ] && CX_WK_DISP=0
+CC_H5_SUFFIX=""
+[ "$CC_H5_EXHAUSTED" = "1" ] && [ "${CC_H5_RESET:-0}" -gt 0 ] 2>/dev/null && CC_H5_SUFFIX=" ($(fmt_countdown "$CC_H5_RESET"))"
+CC_STATUS_ICON=$(status_icon "$CC_H5")
+CX_STATUS_ICON=$(status_icon "$CX_H5_DISP")
 
 # =====================================================================
 # Menubar line
 # =====================================================================
 parts=""
-[ "$CC_OK" = "true" ] && parts+="✦ ${CC_H5}% · ${CC_WK}%"
+[ "$CC_OK" = "true" ] && parts+="${CC_STATUS_ICON} ✦ ${CC_H5}%${CC_H5_SUFFIX} · ${CC_WK}%"
 [ "$CC_OK" = "true" ] && [ "$CX_OK" = "true" ] && parts+="   "
-[ "$CX_OK" = "true" ] && parts+="🤖 ${CX_H5_DISP}% · ${CX_WK_DISP}%"
+[ "$CX_OK" = "true" ] && parts+="${CX_STATUS_ICON} 🤖 ${CX_H5_DISP}% · ${CX_WK_DISP}%"
 [ -z "$parts" ] && parts="AIPulse –"
-
-MAX_PCT=$(awk "BEGIN{m=0;
-  if($CC_H5>m)m=$CC_H5; if($CC_WK>m)m=$CC_WK;
-  if($CX_H5_DISP>m)m=$CX_H5_DISP; if($CX_WK_DISP>m)m=$CX_WK_DISP;
-  print m}")
-echo "${parts} | color=$(theme_color $(color_for_pct $MAX_PCT))"
+echo "${parts} | color=#ffffff"
 
 # =====================================================================
 # Dropdown
@@ -357,7 +371,7 @@ if [ "$CC_OK" = "true" ]; then
   CC_H5_C=$(theme_color $(color_for_pct $CC_H5))
   CC_WK_C=$(theme_color $(color_for_pct $CC_WK))
   CC_PROJ_C=$(theme_color $(color_for_pct $CC_PROJ))
-  echo "  $(t fivehour)    $(bar $CC_H5)  ${CC_H5}% | color=${CC_H5_C} font=Menlo"
+  echo "  $(t fivehour)    $(bar $CC_H5)  ${CC_H5}%${CC_H5_SUFFIX} | color=${CC_H5_C} font=Menlo"
   echo "  $(t week)  $(bar $CC_WK)  ${CC_WK}% | color=${CC_WK_C} font=Menlo"
   echo "  ─────── | color=$(theme_color dim)"
   if [ "$AIPULSE_SHOW_COST" = "1" ]; then

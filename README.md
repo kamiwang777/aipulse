@@ -5,7 +5,7 @@
 **AIPulse** is a tiny SwiftBar plugin that shows live **5-hour** and **weekly** quota usage for [Claude Code](https://claude.com/claude-code) and [Codex](https://github.com/openai/codex-cli) — so you never burn through your limit mid-session again.
 
 ```
-✦ 4.1% · 35.4%   🤖 12% · 33%
+🔴 ✦ 100% (1h13m) · 19%   🟢 🤖 3% · 34%
 ```
 
 [中文文档](README.zh.md) · [Report a bug](https://github.com/kamiwang777/aipulse/issues) · [Author: Kami (@kamiwang777)](https://github.com/kamiwang777)
@@ -16,6 +16,8 @@
 
 - **Zero-config** — auto-detects Claude Code and Codex from your local data
 - **Dual-window tracking** — 5-hour rolling window + weekly window, side by side
+- **Independent status lights** — Claude and Codex each show their own title status instead of sharing one color
+- **Claude reset countdown** — when Claude's 5h window is exhausted, the title shows how long until it resets
 - **Official data sources** — Codex reads the actual `rate_limits` your CLI receives from OpenAI; Claude Code uses [`ccusage`](https://github.com/ryoppippi/ccusage) for token accounting
 - **Projection** — see where your 5h window will end at current burn rate
 - **Context usage** — for Codex, see how full your current conversation's context window is
@@ -76,6 +78,8 @@ Anthropic does **not publish** exact token limits for Claude Pro/Max subscriptio
 
 If you know your plan's approximate ceiling (e.g. Max at ~200M tokens per 5h), set `AIPULSE_CC_5H_LIMIT=200000000` for a fixed baseline.
 
+When the Claude 5h window reaches 100%, the title appends a reset countdown like `(1h13m)` based on the active `ccusage` block end time.
+
 ### Codex
 
 Codex CLI sessions are stored as JSONL at `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl`. Every API response includes a `rate_limits` block from OpenAI showing `primary` (5h) and `secondary` (weekly) percentages directly. AIPulse reads the latest entry — this is **literally** what Codex's internal usage tracker uses.
@@ -89,6 +93,9 @@ Not yet. AIPulse is designed to be extended — PRs welcome.
 
 **Q: Why does my Claude % sometimes exceed 100%?**
 Because the baseline is your historical max. If you set a new record, the app will recalibrate on the next run.
+
+**Q: Why does the title use separate red/green lights for Claude and Codex?**
+SwiftBar only supports one text color for the whole title line. AIPulse uses per-tool emoji lights so each provider can show its own state without making the other one look critical.
 
 **Q: My Codex shows `unknown plan`.**
 The latest session didn't include `plan_type`. Open Codex, ask one question, refresh.

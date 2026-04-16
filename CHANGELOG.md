@@ -1,5 +1,14 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- Independent title status lights for Claude and Codex
+- Claude 5-hour reset countdown in the title and dropdown when the active window is exhausted
+
+### Changed
+- Menu bar title text now renders in white for better contrast on dark menu bars
+
 ## [1.0.0] - 2026-04-16
 
 ### Added
