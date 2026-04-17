@@ -38,6 +38,7 @@ CONFIG_FILE="${AIPULSE_CONFIG:-$HOME/.config/aipulse/config.sh}"
 : "${AIPULSE_CODEX_SUBSCRIPTION:=}"     # optional override for detected Codex plan
 : "${AIPULSE_CODEX_PRICE:=}"            # e.g. "$20/mo"
 : "${AIPULSE_CODEX_RENEWS:=}"           # e.g. "2026-05-01"
+: "${AIPULSE_CCUSAGE_BIN:=}"            # optional override for ccusage binary
 : "${AIPULSE_THRESH_WARN:=70}"          # % for yellow
 : "${AIPULSE_THRESH_DANGER:=90}"        # % for red
 : "${AIPULSE_THRESH_INFO:=50}"          # % for cyan (below = green)
@@ -164,6 +165,36 @@ if ! command -v node >/dev/null 2>&1 || ! command -v "$AIPULSE_NPX_BIN" >/dev/nu
   exit 0
 fi
 
+resolve_ccusage_cmd() {
+  if [ -n "${AIPULSE_CCUSAGE_BIN:-}" ] && [ -x "${AIPULSE_CCUSAGE_BIN}" ]; then
+    echo "${AIPULSE_CCUSAGE_BIN}"
+    return
+  fi
+  if command -v ccusage >/dev/null 2>&1; then
+    command -v ccusage
+    return
+  fi
+
+  local cached
+  cached=$(find "$HOME/.npm/_npx" -path '*/node_modules/.bin/ccusage' -type l 2>/dev/null | tail -n 1)
+  if [ -n "$cached" ] && [ -x "$cached" ]; then
+    echo "$cached"
+    return
+  fi
+
+  echo "$AIPULSE_NPX_BIN -y ccusage@latest"
+}
+
+run_ccusage() {
+  local cmd
+  cmd=$(resolve_ccusage_cmd)
+  if [ -x "$cmd" ]; then
+    "$cmd" "$@"
+  else
+    sh -c "$cmd \"\$@\"" sh "$@"
+  fi
+}
+
 # ---------- formatters ----------
 fmt_tok() {
   local n=${1:-0}
@@ -242,7 +273,9 @@ codex_price_for_plan() {
 
 claude_price_for_plan() {
   local plan="${1:-}"
-  case "${plan,,}" in
+  local plan_lc
+  plan_lc=$(printf '%s' "$plan" | tr '[:upper:]' '[:lower:]')
+  case "$plan_lc" in
     *max*20x*) echo "\$200/mo" ;;
     *max*5x*) echo "\$100/mo" ;;
     *pro*) echo "\$20/mo" ;;
@@ -257,8 +290,8 @@ fetch_claude() {
   [ "$AIPULSE_HIDE_CLAUDE" = "1" ] && { echo "{}"; return; }
 
   local blocks weekly
-  blocks=$("$AIPULSE_NPX_BIN" -y ccusage@latest blocks --active --token-limit "$AIPULSE_CC_5H_LIMIT" --json 2>/dev/null)
-  weekly=$("$AIPULSE_NPX_BIN" -y ccusage@latest weekly --json 2>/dev/null)
+  blocks=$(run_ccusage blocks --active --token-limit "$AIPULSE_CC_5H_LIMIT" --json 2>/dev/null)
+  weekly=$(run_ccusage weekly --json 2>/dev/null)
   local claude_account_file="$HOME/.claude.json"
 
   [ -z "$blocks" ] && { echo "{}"; return; }
@@ -542,8 +575,8 @@ echo "Version v${AIPULSE_VERSION} | size=10 color=$(theme_color dim)"
 echo "ℹ️ $(t footnote) | size=10 color=$(theme_color dim)"
 echo "🔄 $(t refresh) | refresh=true"
 if [ "$CC_OK" = "true" ]; then
-  echo "📊 ccusage blocks | bash='$AIPULSE_NPX_BIN' param1='-y' param2='ccusage@latest' param3='blocks' terminal=true"
-  echo "📈 ccusage monthly | bash='$AIPULSE_NPX_BIN' param1='-y' param2='ccusage@latest' param3='monthly' terminal=true"
+  echo "📊 ccusage blocks | bash='/bin/sh' param1='-lc' param2='\"$(resolve_ccusage_cmd)\" blocks' terminal=true"
+  echo "📈 ccusage monthly | bash='/bin/sh' param1='-lc' param2='\"$(resolve_ccusage_cmd)\" monthly' terminal=true"
 fi
 [ "$CX_OK" = "true" ] && echo "📂 Codex sessions | bash='/usr/bin/open' param1='$HOME/.codex/sessions' terminal=false"
 echo "⚙️ $(t config) | bash='/usr/bin/open' param1='-t' param2='$CONFIG_FILE' terminal=false"
