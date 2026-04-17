@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Changed
+- Claude Code now prefers the local official `usage` cache for 5-hour and weekly percentages
+- Claude dropdown labels now distinguish official percentages from local `ccusage` token estimates
+- Menu bar title was compacted to reduce the chance of disappearing when menu bar space is tight
+
 ## [1.1.0] - 2026-04-16
 
 ### Added

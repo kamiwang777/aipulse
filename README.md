@@ -20,7 +20,7 @@ Current version: `v1.1.0`
 - **Dual-window tracking** — 5-hour rolling window + weekly window, side by side
 - **Independent status lights** — Claude and Codex each show their own title status instead of sharing one color
 - **Claude reset countdown** — when Claude's 5h window is exhausted, the title shows how long until it resets
-- **Official data sources** — Codex reads the actual `rate_limits` your CLI receives from OpenAI; Claude Code uses [`ccusage`](https://github.com/ryoppippi/ccusage) for token accounting
+- **Official data sources** — Codex reads the actual `rate_limits` your CLI receives from OpenAI; Claude Code prefers the local official `usage` cache and falls back to [`ccusage`](https://github.com/ryoppippi/ccusage) for token accounting
 - **Projection** — see where your 5h window will end at current burn rate
 - **Context usage** — for Codex, see how full your current conversation's context window is
 - **i18n** — English and Chinese (`AIPULSE_LANG=en|zh`)
@@ -63,8 +63,8 @@ Edit `~/.config/aipulse/config.sh` (created on first install):
 | `AIPULSE_THEME` | `cyberpunk` | Colors: `cyberpunk` \| `mono` |
 | `AIPULSE_HIDE_CLAUDE` | `0` | Set `1` to hide Claude section |
 | `AIPULSE_HIDE_CODEX` | `0` | Set `1` to hide Codex section |
-| `AIPULSE_CC_5H_LIMIT` | `max` | `max` (historical peak) or a token count |
-| `AIPULSE_CC_WEEK_LIMIT` | `max` | Same as above, weekly |
+| `AIPULSE_CC_5H_LIMIT` | `max` | Claude fallback baseline for `ccusage`-derived token estimates |
+| `AIPULSE_CC_WEEK_LIMIT` | `max` | Same as above, weekly fallback |
 | `AIPULSE_THRESH_INFO` | `50` | % threshold to switch green → cyan |
 | `AIPULSE_THRESH_WARN` | `70` | % threshold to switch to yellow |
 | `AIPULSE_THRESH_DANGER` | `90` | % threshold to switch to red |
@@ -101,11 +101,13 @@ For future releases, bump these three places together:
 
 ### Claude Code
 
-Anthropic does **not publish** exact token limits for Claude Pro/Max subscriptions. AIPulse uses [`ccusage`](https://github.com/ryoppippi/ccusage) with `--token-limit max` — your **highest historical 5-hour window** becomes the 100% baseline. Same approach for the weekly window (highest historical week). This matches what the `ccusage` community has adopted as a pragmatic proxy.
+For Claude Code, AIPulse now prefers the local official `usage` cache written by the Claude desktop app. That gives us the same `five_hour` and `seven_day` utilization percentages the app itself shows, plus official reset timestamps.
 
-If you know your plan's approximate ceiling (e.g. Max at ~200M tokens per 5h), set `AIPULSE_CC_5H_LIMIT=200000000` for a fixed baseline.
+[`ccusage`](https://github.com/ryoppippi/ccusage) is still used locally for token totals, burn rate, projection, and cost estimates in the dropdown. If the official cache is unavailable, AIPulse falls back to the older `ccusage` baseline model.
 
-When the Claude 5h window reaches 100%, the title appends a reset countdown like `(1h13m)` based on the active `ccusage` block end time.
+`AIPULSE_CC_5H_LIMIT` and `AIPULSE_CC_WEEK_LIMIT` still matter for that fallback path and for local estimate math. `max` means "use the highest historical window/week from your local `ccusage` data". If you know your plan's approximate ceiling, you can set a fixed token count instead.
+
+When the Claude 5h window reaches 100%, the title appends a reset countdown like `(1h13m)`. AIPulse prefers the official cached reset time and falls back to the active `ccusage` block end time when needed.
 
 The Claude dropdown `Price` also defaults to a local mapping from `AIPULSE_CLAUDE_SUBSCRIPTION`:
 - `Pro` -> `$20/mo`
@@ -127,8 +129,8 @@ The Codex dropdown `Price` defaults to a local mapping from the detected plan, a
 **Q: Does this work with Cursor / Aider / Gemini CLI?**
 Not yet. AIPulse is designed to be extended — PRs welcome.
 
-**Q: Why does my Claude % sometimes exceed 100%?**
-Because the baseline is your historical max. If you set a new record, the app will recalibrate on the next run.
+**Q: Why might Claude still drift occasionally?**
+The percentage now comes from Claude's local official cache when available, which is much closer to the app UI. The dropdown token and cost numbers are still local `ccusage` estimates, so those lines are intentionally labeled as local estimates.
 
 **Q: Why does the title use separate red/green lights for Claude and Codex?**
 SwiftBar only supports one text color for the whole title line. AIPulse uses per-tool emoji lights so each provider can show its own state without making the other one look critical.
@@ -140,7 +142,7 @@ The latest session didn't include `plan_type`. Open Codex, ask one question, ref
 Rename the plugin file: `aipulse.30s.sh` (30 sec), `aipulse.5m.sh` (5 min), etc.
 
 **Q: Does it affect battery?**
-Negligibly. Each refresh parses local files, no network calls. One `npx ccusage` invocation caches itself after first run.
+Negligibly. Each refresh parses local files and local app caches only, with no network calls. One `npx ccusage` invocation caches itself after first run.
 
 ## Privacy
 

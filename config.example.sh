@@ -15,8 +15,9 @@
 : "${AIPULSE_HIDE_CLAUDE:=0}"
 : "${AIPULSE_HIDE_CODEX:=0}"
 
-# ---- Claude Code token limits ----
-# "max" = historical peak from your local ccusage data (recommended).
+# ---- Claude Code fallback limits ----
+# Used for local ccusage estimates and fallback mode when the official Claude usage cache is unavailable.
+# "max" = historical peak from your local ccusage data.
 # Or a number in tokens, e.g. 200000000 for 200M.
 : "${AIPULSE_CC_5H_LIMIT:=max}"
 : "${AIPULSE_CC_WEEK_LIMIT:=max}"
