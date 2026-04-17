@@ -39,6 +39,7 @@ CONFIG_FILE="${AIPULSE_CONFIG:-$HOME/.config/aipulse/config.sh}"
 : "${AIPULSE_CODEX_PRICE:=}"            # e.g. "$20/mo"
 : "${AIPULSE_CODEX_RENEWS:=}"           # e.g. "2026-05-01"
 : "${AIPULSE_CCUSAGE_BIN:=}"            # optional override for ccusage binary
+: "${AIPULSE_ZSTD_BIN:=/opt/homebrew/bin/zstd}" # optional override for zstd binary
 : "${AIPULSE_THRESH_WARN:=70}"          # % for yellow
 : "${AIPULSE_THRESH_DANGER:=90}"        # % for red
 : "${AIPULSE_THRESH_INFO:=50}"          # % for cyan (below = green)
@@ -73,12 +74,15 @@ t() {
         reset_now)    echo "已重置" ;;
         last)         echo "上次" ;;
         refresh)      echo "刷新" ;;
-        footnote)     echo "Claude: ccusage 历史峰值基准 · Codex: 官方 rate_limits" ;;
+        footnote)     echo "Claude: 官方 usage 缓存 + 本地 ccusage · Codex: 官方 rate_limits" ;;
         not_installed) echo "未安装" ;;
         no_data)      echo "无数据" ;;
         dep_missing)  echo "缺少依赖: node 或 npx 未安装" ;;
         docs)         echo "文档" ;;
         config)       echo "配置文件" ;;
+        source)       echo "数据源" ;;
+        official)     echo "官方缓存" ;;
+        local_est)    echo "本地估算" ;;
       esac ;;
     *)
       case "$key" in
@@ -104,12 +108,15 @@ t() {
         reset_now)    echo "reset" ;;
         last)         echo "last" ;;
         refresh)      echo "Refresh" ;;
-        footnote)     echo "Claude: ccusage historical peak baseline · Codex: official rate_limits" ;;
+        footnote)     echo "Claude: official usage cache + local ccusage · Codex: official rate_limits" ;;
         not_installed) echo "not installed" ;;
         no_data)      echo "no data" ;;
         dep_missing)  echo "missing dependency: node / npx not found" ;;
         docs)         echo "Docs" ;;
         config)       echo "Config file" ;;
+        source)       echo "Source" ;;
+        official)     echo "official cache" ;;
+        local_est)    echo "local estimate" ;;
       esac ;;
   esac
 }
@@ -193,6 +200,62 @@ run_ccusage() {
   else
     sh -c "$cmd \"\$@\"" sh "$@"
   fi
+}
+
+resolve_zstd_cmd() {
+  if [ -n "${AIPULSE_ZSTD_BIN:-}" ] && [ -x "${AIPULSE_ZSTD_BIN}" ]; then
+    echo "${AIPULSE_ZSTD_BIN}"
+    return
+  fi
+  if command -v zstd >/dev/null 2>&1; then
+    command -v zstd
+    return
+  fi
+  echo ""
+}
+
+latest_claude_usage_cache() {
+  local dir="$HOME/Library/Application Support/Claude/Cache/Cache_Data"
+  [ -d "$dir" ] || return 1
+  python3 - "$dir" <<'PY'
+import glob, os, sys
+dir = sys.argv[1]
+best = None
+best_mtime = -1
+needle = b'/api/organizations/'
+needle2 = b'/usage('
+for path in glob.glob(os.path.join(dir, '*_0')):
+    try:
+        with open(path, 'rb') as f:
+            blob = f.read(512)
+        if needle in blob and needle2 in blob:
+            mtime = os.path.getmtime(path)
+            if mtime > best_mtime:
+                best = path
+                best_mtime = mtime
+    except Exception:
+        pass
+print(best or "")
+PY
+}
+
+read_claude_official_usage() {
+  local cache_file zstd_cmd offset
+  cache_file=$(latest_claude_usage_cache)
+  [ -n "$cache_file" ] || return 0
+  zstd_cmd=$(resolve_zstd_cmd)
+  [ -n "$zstd_cmd" ] || return 0
+  offset=$(python3 - "$cache_file" <<'PY'
+from pathlib import Path
+import sys
+p = Path(sys.argv[1]).read_bytes()
+magic = b'\x28\xb5\x2f\xfd'
+i = p.find(magic)
+print(i if i >= 0 else "")
+PY
+)
+  [ -n "$offset" ] || return 0
+  dd if="$cache_file" bs=1 skip="$offset" 2>/dev/null | "$zstd_cmd" -d -q -c 2>/dev/null | sed -n '1p'
 }
 
 # ---------- formatters ----------
@@ -289,9 +352,10 @@ claude_price_for_plan() {
 fetch_claude() {
   [ "$AIPULSE_HIDE_CLAUDE" = "1" ] && { echo "{}"; return; }
 
-  local blocks weekly
+  local blocks weekly official_usage
   blocks=$(run_ccusage blocks --active --token-limit "$AIPULSE_CC_5H_LIMIT" --json 2>/dev/null)
   weekly=$(run_ccusage weekly --json 2>/dev/null)
+  official_usage=$(read_claude_official_usage)
   local claude_account_file="$HOME/.claude.json"
 
   [ -z "$blocks" ] && { echo "{}"; return; }
@@ -301,6 +365,7 @@ fetch_claude() {
     const weekly=JSON.parse(process.argv[2]||"{}");
     const wkLimitArg=process.argv[3]||"max";
     const accountPath=process.argv[4]||"";
+    const official=JSON.parse(process.argv[5]||"null");
 
     const a=(blocks.blocks||[]).find(b=>b.isActive);
     let o={available:true};
@@ -338,6 +403,19 @@ fetch_claude() {
     o.wk_limit=wkLimit;
     o.wk_pct=wkLimit?+(o.wk_tok/wkLimit*100).toFixed(1):0;
 
+    if(official && typeof official === "object"){
+      const fiveHour = official.five_hour || {};
+      const sevenDay = official.seven_day || {};
+      const sonnet = official.seven_day_sonnet || {};
+      if(typeof fiveHour.utilization === "number") o.h5_pct = +fiveHour.utilization.toFixed(1);
+      if(typeof sevenDay.utilization === "number") o.wk_pct = +sevenDay.utilization.toFixed(1);
+      if(fiveHour.resets_at) o.h5_reset = Math.floor(new Date(fiveHour.resets_at).getTime()/1000);
+      if(sevenDay.resets_at) o.wk_reset = Math.floor(new Date(sevenDay.resets_at).getTime()/1000);
+      if(typeof sonnet.utilization === "number") o.wk_sonnet_pct = +sonnet.utilization.toFixed(1);
+      if(sonnet.resets_at) o.wk_sonnet_reset = Math.floor(new Date(sonnet.resets_at).getTime()/1000);
+      o.usage_source = "official_cache";
+    }
+
     try{
       const fs=require("fs");
       const account=JSON.parse(fs.readFileSync(accountPath,"utf8"));
@@ -358,7 +436,7 @@ fetch_claude() {
     }catch(e){}
 
     console.log(JSON.stringify(o));
-  ' "$blocks" "$weekly" "$AIPULSE_CC_WEEK_LIMIT" "$claude_account_file" 2>/dev/null
+  ' "$blocks" "$weekly" "$AIPULSE_CC_WEEK_LIMIT" "$claude_account_file" "${official_usage:-null}" 2>/dev/null
 }
 
 # =====================================================================
@@ -450,6 +528,7 @@ CC_MODELS=$(get "$CC" models);  CC_MODELS=${CC_MODELS:--}
 CC_WKTOK=$(get "$CC" wk_tok);   CC_WKTOK=${CC_WKTOK:-0}
 CC_WKMAX=$(get "$CC" wk_limit); CC_WKMAX=${CC_WKMAX:-0}
 CC_WKCOST=$(get "$CC" wk_cost); CC_WKCOST=${CC_WKCOST:-0}
+CC_USAGE_SOURCE=$(get "$CC" usage_source); CC_USAGE_SOURCE=${CC_USAGE_SOURCE:-ccusage}
 CC_BILLING_TYPE=$(get "$CC" billing_type); CC_BILLING_TYPE=${CC_BILLING_TYPE:-}
 CC_AUTO_RENEWS=$(get "$CC" renews_at); CC_AUTO_RENEWS=${CC_AUTO_RENEWS:-}
 CC_SUB_DISPLAY=$(display_value "$AIPULSE_CLAUDE_SUBSCRIPTION")
@@ -507,9 +586,9 @@ CX_STATUS_ICON=$(status_icon "$CX_H5_DISP")
 # Menubar line
 # =====================================================================
 parts=""
-[ "$CC_OK" = "true" ] && parts+="${CC_STATUS_ICON} ✦ ${CC_H5}%${CC_H5_SUFFIX} · ${CC_WK}%"
-[ "$CC_OK" = "true" ] && [ "$CX_OK" = "true" ] && parts+="   "
-[ "$CX_OK" = "true" ] && parts+="${CX_STATUS_ICON} 🤖 ${CX_H5_DISP}% · ${CX_WK_DISP}%"
+[ "$CC_OK" = "true" ] && parts+="${CC_STATUS_ICON}✦${CC_H5}%${CC_H5_SUFFIX}·${CC_WK}%"
+[ "$CC_OK" = "true" ] && [ "$CX_OK" = "true" ] && parts+=" "
+[ "$CX_OK" = "true" ] && parts+="${CX_STATUS_ICON}🤖${CX_H5_DISP}%·${CX_WK_DISP}%"
 [ -z "$parts" ] && parts="AIPulse –"
 echo "${parts} | color=#ffffff"
 
@@ -529,20 +608,40 @@ if [ "$CC_OK" = "true" ]; then
   echo "  $(t fivehour)    $(bar $CC_H5)  ${CC_H5}%${CC_H5_SUFFIX} | color=${CC_H5_C} font=Menlo"
   echo "  $(t week)  $(bar $CC_WK)  ${CC_WK}% | color=${CC_WK_C} font=Menlo"
   echo "  ─────── | color=$(theme_color dim)"
-  if [ "$AIPULSE_SHOW_COST" = "1" ]; then
-    echo "  $(t fivehour) $(t used): $(fmt_tok $CC_TOK) · $(fmt_tok $CC_LIMIT) · \$${CC_COST}"
-    echo "  $(t projected): $(bar $CC_PROJ) ${CC_PROJ}% · \$${CC_PROJC} | color=${CC_PROJ_C}"
+  if [ "$CC_USAGE_SOURCE" = "official_cache" ]; then
+    if [ "$AIPULSE_SHOW_COST" = "1" ]; then
+      echo "  $(t fivehour) $(t used) ($(t local_est)): $(fmt_tok $CC_TOK) · \$${CC_COST}"
+      echo "  $(t projected) ($(t local_est)): $(bar $CC_PROJ) ${CC_PROJ}% · \$${CC_PROJC} | color=${CC_PROJ_C}"
+    else
+      echo "  $(t fivehour) $(t used) ($(t local_est)): $(fmt_tok $CC_TOK)"
+      echo "  $(t projected) ($(t local_est)): $(bar $CC_PROJ) ${CC_PROJ}% | color=${CC_PROJ_C}"
+    fi
   else
-    echo "  $(t fivehour) $(t used): $(fmt_tok $CC_TOK) · $(fmt_tok $CC_LIMIT)"
-    echo "  $(t projected): $(bar $CC_PROJ) ${CC_PROJ}% | color=${CC_PROJ_C}"
+    if [ "$AIPULSE_SHOW_COST" = "1" ]; then
+      echo "  $(t fivehour) $(t used): $(fmt_tok $CC_TOK) · $(fmt_tok $CC_LIMIT) · \$${CC_COST}"
+      echo "  $(t projected): $(bar $CC_PROJ) ${CC_PROJ}% · \$${CC_PROJC} | color=${CC_PROJ_C}"
+    else
+      echo "  $(t fivehour) $(t used): $(fmt_tok $CC_TOK) · $(fmt_tok $CC_LIMIT)"
+      echo "  $(t projected): $(bar $CC_PROJ) ${CC_PROJ}% | color=${CC_PROJ_C}"
+    fi
   fi
   echo "  $(t burnrate): $(fmt_tok $CC_BURN)/min · $(t remaining) $(fmt_time $CC_REMAIN)"
   echo "  $(t models): ${CC_MODELS}"
   echo "  $(t price): ${CC_PRICE_DISPLAY}"
-  if [ "$AIPULSE_SHOW_COST" = "1" ]; then
-    echo "  $(t thisweek): $(fmt_tok $CC_WKTOK) · \$${CC_WKCOST}  ($(t peakweek) $(fmt_tok $CC_WKMAX))"
+  if [ "$CC_USAGE_SOURCE" = "official_cache" ]; then
+    if [ "$AIPULSE_SHOW_COST" = "1" ]; then
+      echo "  $(t thisweek) ($(t local_est)): $(fmt_tok $CC_WKTOK) · \$${CC_WKCOST}"
+    else
+      echo "  $(t thisweek) ($(t local_est)): $(fmt_tok $CC_WKTOK)"
+    fi
+    echo "  $(t source): $(t official) % · $(t local_est) tokens"
   else
-    echo "  $(t thisweek): $(fmt_tok $CC_WKTOK)  ($(t peakweek) $(fmt_tok $CC_WKMAX))"
+    if [ "$AIPULSE_SHOW_COST" = "1" ]; then
+      echo "  $(t thisweek): $(fmt_tok $CC_WKTOK) · \$${CC_WKCOST}  ($(t peakweek) $(fmt_tok $CC_WKMAX))"
+    else
+      echo "  $(t thisweek): $(fmt_tok $CC_WKTOK)  ($(t peakweek) $(fmt_tok $CC_WKMAX))"
+    fi
+    echo "  $(t source): ccusage"
   fi
 elif [ "$AIPULSE_HIDE_CLAUDE" != "1" ]; then
   echo "---"
